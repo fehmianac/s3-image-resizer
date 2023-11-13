@@ -46,8 +46,11 @@ public class Entrypoint
             var width = int.Parse(match.Groups[2].Value);
             var height = int.Parse(match.Groups[3].Value);
             var originalKey = match.Groups[4].Value;
-            
-            
+
+            var prefix = Environment.GetEnvironmentVariable("PREFIX");
+            if (!string.IsNullOrEmpty(prefix))
+                originalKey = prefix + "/" + originalKey;
+
             Console.WriteLine(originalKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
