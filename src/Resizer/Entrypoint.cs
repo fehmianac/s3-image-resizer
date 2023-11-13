@@ -47,6 +47,7 @@ public class Entrypoint
             var height = int.Parse(match.Groups[3].Value);
             var originalKey = match.Groups[4].Value;
             
+            
             Console.WriteLine(originalKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
