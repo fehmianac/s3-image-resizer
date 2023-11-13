@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="2.6.0" />
+      <PackageReference Include="Amazon.Lambda.Serialization.Json" Version="2.1.1" />
+      <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.3.1" />
+      <PackageReference Include="AWSSDK.S3" Version="3.7.203.2" />
+      <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
+    </ItemGroup>
+
+
+</Project>
