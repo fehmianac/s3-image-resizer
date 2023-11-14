@@ -2,6 +2,8 @@ using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
 using Amazon.S3;
 using Amazon.S3.Model;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
@@ -51,6 +53,28 @@ public class Entrypoint
             if (!string.IsNullOrEmpty(prefix))
                 originalKey = prefix + "/" + originalKey;
 
+            var imageExtension = originalKey.Split('.').Last();
+            var validExtensions = new Dictionary<string, ImageEncoder>
+            {
+                {"jpg", new JpegEncoder()},
+                {"jpeg", new JpegEncoder()},
+                {"png", new PngEncoder()},
+            };
+
+            if (!validExtensions.ContainsKey(imageExtension))
+            {
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = 301,
+                    Headers = new Dictionary<string, string>
+                    {
+                        {"location", originalKey}
+                    },
+                    Body = string.Empty
+                };
+            }
+
+
             Console.WriteLine(originalKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
@@ -63,20 +87,23 @@ public class Entrypoint
             {
                 using (var image = await Image.LoadAsync(originalStream))
                 {
-                    image.Mutate(x => x.Resize(new ResizeOptions
-                    {
-                        Size = new Size(width, height),
-                        Mode = ResizeMode.Max
-                    }));
+                    image.Mutate(x =>
+                        x.AutoOrient().Resize(new ResizeOptions
+                        {
+                            Size = new Size(width, height),
+                            Mode = ResizeMode.Max
+                        }));
 
-                    await image.SaveAsync(outputMemoryStream, new PngEncoder());
+                    var encoder = validExtensions[imageExtension];
+
+                    await image.SaveAsync(outputMemoryStream, encoder);
                 }
 
                 await _s3Client.PutObjectAsync(new PutObjectRequest
                 {
                     BucketName = Environment.GetEnvironmentVariable("BUCKET"),
                     Key = key,
-                    ContentType = "image/png",
+                    ContentType = $"image/{imageExtension}",
                     InputStream = outputMemoryStream,
                     TagSet = new List<Tag>
                     {
