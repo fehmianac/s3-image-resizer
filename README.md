@@ -32,6 +32,8 @@ Designed to work seamlessly in serverless environments, the S3 Image Resizer is 
 
 
 ## Setup
+Open your S3 bucket in the AWS Management Console and navigate to the "Properties" tab. In the "Static website hosting" section, update the error document configuration with the following JSON:
+
 ```json
 
 [
@@ -65,7 +67,7 @@ Designed to work seamlessly in serverless environments, the S3 Image Resizer is 
 3. **Deploy with AWS CloudFormation:**
    Use the provided CloudFormation template (`s3-image-resizer-template.yaml`) to automate the setup of your S3 Image Resizer. Replace `<YOUR-BUCKET-NAME>` with the desired S3 bucket name.
    ```bash
-   aws cloudformation deploy --template-file s3-image-resizer-template.yaml --stack-name S3ImageResizerStack --parameter-overrides BucketName=<YOUR-BUCKET-NAME>
+   aws cloudformation deploy --template-file s3-image-resizer-template.yaml --stack-name S3ImageResizerStack --parameter-overrides BucketName=<YOUR-BUCKET-NAME> BucketProxyUrl=<YOUR-BUCKET-PROXY-URL> AllowedResolutions=<YOUR-ALLOWED-RESOLUTIONS> Prefix=<YOUR-PREFIX> CodeBucketName=<YOUR-CODE-BUCKET-NAME>
    ```
 
 4. **Configure S3 Access:**
