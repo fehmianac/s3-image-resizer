@@ -128,7 +128,7 @@ public class Entrypoint
         }
         catch (Exception ex)
         {
-            LambdaLogger.Log($"Error: {ex.Message}");
+            context.Logger.LogError($"Error: {ex.Message}");
             throw;
         }
     }
