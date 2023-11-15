@@ -25,6 +25,16 @@ The project is developed using the latest .NET 6.0 framework, ensuring compatibi
 
 Designed to work seamlessly in serverless environments, the S3 Image Resizer is well-suited for cloud-based deployments. It can efficiently scale based on demand and handle image resizing without the need for a dedicated server.
 
+
+## Infrastructure
+
+![infra.png](docs%2Finfra.png)
+
+
+## Setup
+![s3-settings.png](docs%2Fs3-settings.png)
+
+
 ## Deployment with AWS CloudFormation
 
 1. **Clone the Repository:**
@@ -53,7 +63,7 @@ Designed to work seamlessly in serverless environments, the S3 Image Resizer is 
 
 ## Contributing
 
-If you would like to contribute to the project or report issues, please check the [contribution guidelines](CONTRIBUTING.md).
+If you would like to contribute to the project or report issues, you can do so by creating a pull request or opening an issue.
 
 ## License
 

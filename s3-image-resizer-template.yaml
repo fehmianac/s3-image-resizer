@@ -8,7 +8,10 @@ Parameters:
     Type: String
     Default: 'Type your image server bucket name'
     Description: (Required) The name of the S3 bucket where the Lambda function code is stored. Minimum 3 characters
-  
+  BucketProxyUrl:
+    Type: String
+    Default: 'Type your image server bucket proxy url'
+    Description: (Required) Type your image server bucket proxy url ex https://cdn.example.com
   AllowedResolutions:
     Type: String
     Default: '1920x1080,1280x720,640x480,320x240,160x120'
@@ -20,7 +23,7 @@ Parameters:
     Description: If you want to store image difference folder, you can set this value original image prefix.
   CodeBucketName:
     Type: String
-    Default: 'kisshe-deploy-package'
+    Default: ''
     Description: (Required) The name of the S3 bucket where the Lambda function code is stored. Minimum 3 characters
 
 Resources:
@@ -85,7 +88,7 @@ Resources:
           BUCKET: !Ref BucketName
           ALLOWED_RESOLUTIONS: !Ref AllowedResolutions
           PREFIX: !Ref Prefix
-  
+          URL: !Ref BucketProxyUrl
   
   
   ImageResizerLambdaFunctionLogGroup:
@@ -132,6 +135,8 @@ Resources:
                 Action:
                   - s3:GetObject
                   - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:PutObjectTagging
                 Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref BucketName, '/*' ] ]
 
 
