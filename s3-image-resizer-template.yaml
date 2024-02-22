@@ -82,7 +82,7 @@ Resources:
       Role: !GetAtt ImageResizerLambdaFunctionExecutionRole.Arn
       MemorySize: 512
       Timeout: 180
-      Runtime: dotnet6
+      Runtime: dotnet8
       Environment:
         Variables:
           BUCKET: !Ref BucketName
