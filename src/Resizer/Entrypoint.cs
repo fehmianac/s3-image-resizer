@@ -83,7 +83,7 @@ public class Entrypoint
                 BucketName = Environment.GetEnvironmentVariable("BUCKET"),
                 Key = originalKey
             });
-
+            
             await using (var originalStream = getObjectResponse.ResponseStream)
             using (var outputMemoryStream = new MemoryStream())
             {

@@ -26,13 +26,25 @@ Parameters:
     Default: ''
     Description: (Required) The name of the S3 bucket where the Lambda function code is stored. Minimum 3 characters
 
+  ExposeType:
+    Type: String
+    Default: 'FunctionUrl'
+    AllowedValues: ['FunctionUrl', 'ApiGateway']
+    Description: (Required) The type of exposure for the API. FunctionUrl or ApiGateway
+
+Conditions:
+  IsFunctionUrlAuth: !Equals [!Ref ExposeType, "FunctionUrl"]
+  IsApiGatewayAuth: !Equals [!Ref ExposeType, "ApiGateway"]
+
+
 Resources:
   ImageResizerApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Name: image-resizer-api
       ProtocolType: HTTP
-
+    Condition: IsApiGatewayAuth
+    
   ProxyRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -44,6 +56,7 @@ Resources:
         - '/'
         - - 'integrations'
           - !Ref ProxyRouteAnyMethod
+    Condition: IsApiGatewayAuth 
   
   ProxyRouteAnyMethod:
     Type: AWS::ApiGatewayV2::Integration
@@ -55,14 +68,16 @@ Resources:
       IntegrationUri:
         Fn::Sub:
           arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ImageResizerLambdaFunction.Arn}/invocations
-
+    Condition: IsApiGatewayAuth
+    
   Deployment:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
       - ProxyRoute
     Properties:
       ApiId: !Ref ImageResizerApi
-  
+    Condition: IsApiGatewayAuth
+    
   Stage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
@@ -70,7 +85,18 @@ Resources:
       Description: Prod Stage
       DeploymentId: !Ref Deployment
       ApiId: !Ref ImageResizerApi
-
+    Condition: IsApiGatewayAuth
+    
+  ImageResizerLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - ImageResizerApi
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ImageResizerLambdaFunction
+      Principal: apigateway.amazonaws.com    
+    Condition: IsApiGatewayAuth
+    
   ImageResizerLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -89,7 +115,24 @@ Resources:
           ALLOWED_RESOLUTIONS: !Ref AllowedResolutions
           PREFIX: !Ref Prefix
           URL: !Ref BucketProxyUrl
-  
+   
+  ImageResizerLambdaFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      AuthType: NONE
+      TargetFunctionArn: !Ref ImageResizerLambdaFunction
+    Condition: IsFunctionUrlAuth
+
+  ImageResizerLambdaFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - ImageResizerLambdaFunction
+    Properties:
+      Action: lambda:InvokeFunctionUrl
+      FunctionName: !Ref ImageResizerLambdaFunction
+      FunctionUrlAuthType: 'NONE'
+      Principal: "*"
+      
   
   ImageResizerLambdaFunctionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -97,15 +140,6 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/ImageResizerLambdaFunction"
       RetentionInDays: 14
   
-  ImageResizerLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    DependsOn:
-      - ImageResizerApi
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref ImageResizerLambdaFunction
-      Principal: apigateway.amazonaws.com
-
   ImageResizerLambdaFunctionExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -139,8 +173,3 @@ Resources:
                   - s3:PutObjectTagging
                 Resource: !Join [ '', [ 'arn:aws:s3:::', !Ref BucketName, '/*' ] ]
 
-
-Outputs:
-  ImageResizerApiURI:
-    Description: "The Rest URI to connect to"
-    Value: !Join [ '', [ 'https://', !Ref ImageResizerApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/','prod' ] ]
