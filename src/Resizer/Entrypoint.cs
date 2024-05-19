@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
@@ -24,6 +25,7 @@ public class Entrypoint
     {
         try
         {
+            Console.WriteLine(JsonSerializer.Serialize(request));
             var key = request.QueryStringParameters["path"];
             var queryParameters = HttpUtility.ParseQueryString(key);
             var originalExtension = ExtractExtension(queryParameters, ref key);
