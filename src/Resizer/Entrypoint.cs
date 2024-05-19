@@ -12,6 +12,10 @@ using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 using System.Web;
 
+[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
+
+namespace Resizer;
+
 public class Entrypoint
 {
     private readonly IAmazonS3 _s3Client = new AmazonS3Client();
