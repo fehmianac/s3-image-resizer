@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using System.Text.RegularExpressions;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.Core;
 using Amazon.S3;
@@ -6,11 +8,9 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
-
-[assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
-
-namespace Resizer;
+using System.Web;
 
 public class Entrypoint
 {
@@ -21,117 +21,139 @@ public class Entrypoint
         try
         {
             var key = request.QueryStringParameters["path"];
-            var match = System.Text.RegularExpressions.Regex.Match(key, @"((\d+)x(\d+))\/(.*)");
+            var queryParameters = HttpUtility.ParseQueryString(key);
+            var originalExtension = ExtractExtension(queryParameters, ref key);
+            var match = Regex.Match(key, @"((\d+)x(\d+))\/(.*)");
 
-            if (match.Groups.Count < 4)
-            {
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 403,
-                    Headers = new Dictionary<string, string>(),
-                    Body = string.Empty
-                };
-            }
+            if (!IsValidMatch(match))
+                return CreateResponse(403, string.Empty);
 
-            var allowedResolutions = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ALLOWED_RESOLUTIONS"))
-                ? Environment.GetEnvironmentVariable("ALLOWED_RESOLUTIONS").Split(',').Select(res => res.Trim()).ToArray()
-                : Array.Empty<string>();
+            var allowedResolutions = GetAllowedResolutions();
+            if (!IsResolutionAllowed(match.Groups[1].Value, allowedResolutions))
+                return CreateResponse(403, string.Empty);
 
-            if (allowedResolutions.Length > 0 && !allowedResolutions.Contains(match.Groups[1].Value))
-            {
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 403,
-                    Headers = new Dictionary<string, string>(),
-                    Body = string.Empty
-                };
-            }
+            var (width, height, originalKey) = ExtractImageDimensionsAndKey(match, key);
+            var prefixedKey = ApplyPrefix(originalKey);
+            var imageExtension = GetFileExtension(prefixedKey);
 
-            var width = int.Parse(match.Groups[2].Value);
-            var height = int.Parse(match.Groups[3].Value);
-            var originalKey = match.Groups[4].Value;
-
-            var prefix = Environment.GetEnvironmentVariable("PREFIX");
-            if (!string.IsNullOrEmpty(prefix))
-                originalKey = prefix + "/" + originalKey;
-
-            var imageExtension = originalKey.Split('.').Last();
-            var validExtensions = new Dictionary<string, ImageEncoder>
-            {
-                {"jpg", new JpegEncoder()},
-                {"jpeg", new JpegEncoder()},
-                {"png", new PngEncoder()},
-            };
-
+            var validExtensions = GetValidExtensions();
             if (!validExtensions.ContainsKey(imageExtension))
-            {
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 301,
-                    Headers = new Dictionary<string, string>
-                    {
-                        {"location", originalKey}
-                    },
-                    Body = string.Empty
-                };
-            }
+                return CreateResponse(301, null, new Dictionary<string, string> { { "location", prefixedKey } });
 
-
-            Console.WriteLine(originalKey);
+            var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : originalKey;
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
                 BucketName = Environment.GetEnvironmentVariable("BUCKET"),
-                Key = originalKey
+                Key = fileKey
             });
-            
-            await using (var originalStream = getObjectResponse.ResponseStream)
-            using (var outputMemoryStream = new MemoryStream())
-            {
-                using (var image = await Image.LoadAsync(originalStream))
-                {
-                    image.Mutate(x =>
-                        x.AutoOrient().Resize(new ResizeOptions
-                        {
-                            Size = new Size(width, height),
-                            Mode = ResizeMode.Max
-                        }));
 
-                    var encoder = validExtensions[imageExtension];
-
-                    await image.SaveAsync(outputMemoryStream, encoder);
-                }
-
-                await _s3Client.PutObjectAsync(new PutObjectRequest
-                {
-                    BucketName = Environment.GetEnvironmentVariable("BUCKET"),
-                    Key = key,
-                    ContentType = $"image/{imageExtension}",
-                    InputStream = outputMemoryStream,
-                    TagSet = new List<Tag>
-                    {
-                        new Tag
-                        {
-                            Key = "lifetime",
-                            Value = "transient"
-                        }
-                    }
-                });
-            }
-
-            return new APIGatewayProxyResponse
-            {
-                StatusCode = 301,
-                Headers = new Dictionary<string, string>
-                {
-                    {"location", $"{Environment.GetEnvironmentVariable("URL")}/{key}"}
-                },
-                Body = string.Empty
-            };
+            await ProcessAndSaveImage(getObjectResponse.ResponseStream, prefixedKey, width, height, validExtensions[imageExtension], imageExtension);
+            return CreateRedirectResponse(prefixedKey);
         }
         catch (Exception ex)
         {
             context.Logger.LogError($"Error: {ex.Message}");
             throw;
         }
+    }
+
+    private static string ExtractExtension(NameValueCollection queryParameters, ref string key)
+    {
+        var originalExtension = key.Split('.').Last();
+        if (queryParameters.AllKeys.Any())
+        {
+            originalExtension = queryParameters[0];
+            key = key.Replace($"?extension={originalExtension}", "");
+        }
+        return originalExtension;
+    }
+
+    private static bool IsValidMatch(Match match)
+    {
+        return match.Groups.Count >= 4;
+    }
+
+    private static string[] GetAllowedResolutions()
+    {
+        var allowedResolutionsEnv = Environment.GetEnvironmentVariable("ALLOWED_RESOLUTIONS");
+        return string.IsNullOrEmpty(allowedResolutionsEnv)
+            ? Array.Empty<string>()
+            : allowedResolutionsEnv.Split(',').Select(res => res.Trim()).ToArray();
+    }
+
+    private static bool IsResolutionAllowed(string resolution, string[] allowedResolutions)
+    {
+        return allowedResolutions.Length == 0 || allowedResolutions.Contains(resolution);
+    }
+
+    private static (int width, int height, string originalKey) ExtractImageDimensionsAndKey(Match match, string key)
+    {
+        var width = int.Parse(match.Groups[2].Value);
+        var height = int.Parse(match.Groups[3].Value);
+        var originalKey = match.Groups[4].Value;
+        return (width, height, originalKey);
+    }
+
+    private static string ApplyPrefix(string originalKey)
+    {
+        var prefix = Environment.GetEnvironmentVariable("PREFIX");
+        return string.IsNullOrEmpty(prefix) ? originalKey : $"{prefix}/{originalKey}";
+    }
+
+    private static string GetFileExtension(string key)
+    {
+        return key.Split('.').Last();
+    }
+
+    private static Dictionary<string, IImageEncoder> GetValidExtensions()
+    {
+        return new Dictionary<string, IImageEncoder>
+        {
+            { "jpg", new JpegEncoder() },
+            { "jpeg", new JpegEncoder() },
+            { "png", new PngEncoder() },
+            { "webp", new WebpEncoder { Quality = 75 } }
+        };
+    }
+
+    private async Task ProcessAndSaveImage(Stream originalStream, string key, int width, int height, IImageEncoder encoder, string imageExtension)
+    {
+        await using var outputMemoryStream = new MemoryStream();
+        using (var image = await Image.LoadAsync(originalStream))
+        {
+            image.Mutate(x => x.AutoOrient().Resize(new ResizeOptions
+            {
+                Size = new Size(width, height),
+                Mode = ResizeMode.Max
+            }));
+            await image.SaveAsync(outputMemoryStream, encoder);
+        }
+
+        await _s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = Environment.GetEnvironmentVariable("BUCKET"),
+            Key = key,
+            ContentType = $"image/{imageExtension}",
+            InputStream = outputMemoryStream,
+            TagSet = new List<Tag> { new Tag { Key = "lifetime", Value = "transient" } }
+        });
+    }
+
+    private static APIGatewayProxyResponse CreateResponse(int statusCode, string? body, Dictionary<string, string>? headers = null)
+    {
+        return new APIGatewayProxyResponse
+        {
+            StatusCode = statusCode,
+            Headers = headers ?? new Dictionary<string, string>(),
+            Body = body
+        };
+    }
+
+    private static APIGatewayProxyResponse CreateRedirectResponse(string key)
+    {
+        return CreateResponse(301, string.Empty, new Dictionary<string, string>
+        {
+            { "location", $"{Environment.GetEnvironmentVariable("URL")}/{key}" }
+        });
     }
 }
