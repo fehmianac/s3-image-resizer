@@ -52,7 +52,7 @@ public class Entrypoint
                 Key = fileKey
             });
 
-            await ProcessAndSaveImage(getObjectResponse.ResponseStream, prefixedKey, width, height, validExtensions[imageExtension], imageExtension);
+            await ProcessAndSaveImage(getObjectResponse.ResponseStream, key, width, height, validExtensions[imageExtension], imageExtension);
             return CreateRedirectResponse(key);
         }
         catch (Exception ex)
@@ -110,7 +110,7 @@ public class Entrypoint
         };
     }
 
-    private async Task ProcessAndSaveImage(Stream originalStream, string key, int width, int height, IImageEncoder encoder, string imageExtension)
+    private async Task<string> ProcessAndSaveImage(Stream originalStream, string key, int width, int height, IImageEncoder encoder, string imageExtension)
     {
         await using var outputMemoryStream = new MemoryStream();
         using (var image = await Image.LoadAsync(originalStream))
@@ -131,6 +131,7 @@ public class Entrypoint
             InputStream = outputMemoryStream,
             TagSet = new List<Tag> { new Tag { Key = "lifetime", Value = "transient" } }
         });
+        return key;
     }
 
     private static APIGatewayProxyResponse CreateResponse(int statusCode, string? body, Dictionary<string, string>? headers = null)

@@ -2,6 +2,10 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Resizer", "src\Resizer\Resizer.csproj", "{0944923A-648E-48A9-A01E-9C4C398A9F83}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{DBCD5182-3650-4801-9343-5B040B136F15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Resizer.Tests", "tests\Resizer.Tests\Resizer.Tests.csproj", "{7F3D30F7-9A68-4597-878B-4CCA8DEE859C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +16,12 @@ Global
 		{0944923A-648E-48A9-A01E-9C4C398A9F83}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0944923A-648E-48A9-A01E-9C4C398A9F83}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0944923A-648E-48A9-A01E-9C4C398A9F83}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F3D30F7-9A68-4597-878B-4CCA8DEE859C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F3D30F7-9A68-4597-878B-4CCA8DEE859C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F3D30F7-9A68-4597-878B-4CCA8DEE859C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F3D30F7-9A68-4597-878B-4CCA8DEE859C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7F3D30F7-9A68-4597-878B-4CCA8DEE859C} = {DBCD5182-3650-4801-9343-5B040B136F15}
 	EndGlobalSection
 EndGlobal
