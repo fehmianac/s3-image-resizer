@@ -25,7 +25,6 @@ public class Entrypoint
     {
         try
         {
-            Console.WriteLine(JsonSerializer.Serialize(request));
             var key = request.QueryStringParameters["path"];
             var extension = request.QueryStringParameters.TryGetValue("extension", out var parameter) ? parameter : GetFileExtension(key);
             var originalExtension = extension;
@@ -47,8 +46,6 @@ public class Entrypoint
                 return CreateResponse(301, null, new Dictionary<string, string> { { "location", prefixedKey } });
 
             var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : prefixedKey;
-            Console.WriteLine($"OrginalExtension : {originalExtension} ImageExtension : {imageExtension}");
-            Console.WriteLine(fileKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
                 BucketName = Environment.GetEnvironmentVariable("BUCKET"),
@@ -56,7 +53,7 @@ public class Entrypoint
             });
 
             await ProcessAndSaveImage(getObjectResponse.ResponseStream, prefixedKey, width, height, validExtensions[imageExtension], imageExtension);
-            return CreateRedirectResponse(prefixedKey);
+            return CreateRedirectResponse(key);
         }
         catch (Exception ex)
         {
