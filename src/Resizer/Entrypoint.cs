@@ -27,8 +27,8 @@ public class Entrypoint
         {
             Console.WriteLine(JsonSerializer.Serialize(request));
             var key = request.QueryStringParameters["path"];
-            var queryParameters = HttpUtility.ParseQueryString(key);
-            var originalExtension = ExtractExtension(queryParameters, ref key);
+            var extension = request.QueryStringParameters.TryGetValue("extension", out var parameter) ? parameter : GetFileExtension(key);
+            var originalExtension = extension;
             var match = Regex.Match(key, @"((\d+)x(\d+))\/(.*)");
 
             if (!IsValidMatch(match))
@@ -46,7 +46,7 @@ public class Entrypoint
             if (!validExtensions.ContainsKey(imageExtension))
                 return CreateResponse(301, null, new Dictionary<string, string> { { "location", prefixedKey } });
 
-            var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : originalKey;
+            var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : prefixedKey;
             Console.WriteLine($"OrginalExtension : {originalExtension} ImageExtension : {imageExtension}");
             Console.WriteLine(fileKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
@@ -64,18 +64,7 @@ public class Entrypoint
             throw;
         }
     }
-
-    private static string ExtractExtension(NameValueCollection queryParameters, ref string key)
-    {
-        var originalExtension = key.Split('.').Last();
-        if (queryParameters.AllKeys.Any())
-        {
-            originalExtension = queryParameters[0];
-            key = key.Replace($"?extension={originalExtension}", "");
-        }
-        return originalExtension;
-    }
-
+    
     private static bool IsValidMatch(Match match)
     {
         return match.Groups.Count >= 4;
