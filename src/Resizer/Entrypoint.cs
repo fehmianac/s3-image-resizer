@@ -47,6 +47,8 @@ public class Entrypoint
                 return CreateResponse(301, null, new Dictionary<string, string> { { "location", prefixedKey } });
 
             var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : originalKey;
+            Console.WriteLine($"OrginalExtension : {originalExtension} ImageExtension : {imageExtension}");
+            Console.WriteLine(fileKey);
             var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
             {
                 BucketName = Environment.GetEnvironmentVariable("BUCKET"),
