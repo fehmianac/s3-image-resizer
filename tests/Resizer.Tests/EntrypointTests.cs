@@ -23,8 +23,7 @@ public class EntrypointTests
         {
             QueryStringParameters = new Dictionary<string, string>
             {
-                { "path", "961x1200/anonymous/B39C669B-2EFF-4DDC-B04F-1FC1D011111D.webp" },
-                {"extension","jpg"}
+                { "path", "961x1200/anonymous/B39C669B-2EFF-4DDC-B04F-1FC1D011111D.webp" }
             }
         }, null);
     }

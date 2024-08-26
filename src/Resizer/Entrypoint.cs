@@ -26,8 +26,6 @@ public class Entrypoint
         try
         {
             var key = request.QueryStringParameters["path"];
-            var extension = request.QueryStringParameters.TryGetValue("extension", out var parameter) ? parameter : GetFileExtension(key);
-            var originalExtension = extension;
             var match = Regex.Match(key, @"((\d+)x(\d+))\/(.*)");
 
             if (!IsValidMatch(match))
@@ -44,15 +42,12 @@ public class Entrypoint
             var validExtensions = GetValidExtensions();
             if (!validExtensions.ContainsKey(imageExtension))
                 return CreateResponse(301, null, new Dictionary<string, string> { { "location", prefixedKey } });
-
-            var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : prefixedKey;
-            var getObjectResponse = await _s3Client.GetObjectAsync(new GetObjectRequest
-            {
-                BucketName = Environment.GetEnvironmentVariable("BUCKET"),
-                Key = fileKey
-            });
-
-            await ProcessAndSaveImage(getObjectResponse.ResponseStream, key, width, height, validExtensions[imageExtension], imageExtension);
+            
+            var stream = await GetFileStream(_s3Client, key, originalKey, prefixedKey, imageExtension);
+            if(stream == null)
+                return CreateResponse(403, string.Empty);
+            
+            await ProcessAndSaveImage(stream, key, width, height, validExtensions[imageExtension], imageExtension);
             return CreateRedirectResponse(key);
         }
         catch (Exception ex)
@@ -61,7 +56,33 @@ public class Entrypoint
             throw;
         }
     }
-    
+
+
+    private static async Task<Stream?> GetFileStream(IAmazonS3 s3Client,string key, string originalKey, string prefixedKey, string imageExtension)
+    {
+        var validExtensions = GetValidExtensions();
+        foreach (var validExtension in validExtensions)
+        {
+            try
+            {
+                var extension = validExtension.Key;
+                var originalExtension = extension;
+                var fileKey = originalExtension != imageExtension ? prefixedKey.Replace(imageExtension, originalExtension) : prefixedKey;
+                var getObjectResponse = await s3Client.GetObjectAsync(new GetObjectRequest
+                {
+                    BucketName = Environment.GetEnvironmentVariable("BUCKET"),
+                    Key = fileKey
+                });
+                return getObjectResponse.ResponseStream;
+            }
+            catch 
+            {
+               //ignore
+            }
+        }
+        return null;
+       
+    }
     private static bool IsValidMatch(Match match)
     {
         return match.Groups.Count >= 4;
